@@ -652,5 +652,5 @@ if __name__ == "__main__":
         # Macos specific requirement for Multi-Processing
         set_start_method("fork", force=True)
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logger.remove()
+    # logger.remove()
     main()

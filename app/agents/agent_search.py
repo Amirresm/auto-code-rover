@@ -22,7 +22,7 @@ Do not worry about test files or writing test; you are only interested in crafti
 """
 
 
-SELECT_PROMPT = (
+SELECT_PROMPT_DEFAULT = (
     "Based on the files, classes, methods, and code statements from the issue related to the bug, you can use the following search APIs to get more context of the project."
     "\n- search_class(class_name: str): Search for a class in the codebase."
     "\n- search_class_in_file(self, class_name, file_name: str): Search for a class in a given file."
@@ -37,6 +37,22 @@ SELECT_PROMPT = (
     "\n\nNow analyze the issue and select necessary APIs to get more context of the project. Each API call must have concrete arguments as inputs."
 )
 
+SELECT_PROMPT_ARISE = (
+    "Based on the files, classes, methods, and code statements from the issue related to the bug, you can use the following search APIs to get more context of the project."
+    "\n- arise_search(root_dir: str, query: str, top_k: int = None): Search for code entities (classes, functions, modules) in the repository graph by text query. Returns a JSON list of matching entities with their file paths and line numbers, sorted by relevance score."
+    "\n- arise_get_entity_info(root_dir: str, node_id: str): Return metadata and graph-connectivity summary for a specific node by its ID. Shows file location, type, name, line range, and edge counts grouped by relation type."
+    "\n- arise_get_code_span(root_dir: str, file_path: str, start_line: int, end_line: int): Read a specific range of lines from a file in the repository. Returns the code text with its file path and line numbers as JSON."
+    "\n- arise_get_enclosing_scopes(root_dir: str, file_path: str, line: int): Return the enclosing scopes (module, class, function/method) for a given line in a file, ordered from innermost to outermost."
+    "\n- arise_traverse_relations(root_dir: str, node_id: str, max_hops: int = None, direction: str = None, relation_types: str = None): Traverse the repository graph from a seed node following edges up to max_hops away. direction is 'out' (default) or 'in'. relation_types is a comma-separated list of: contains, imports, imported_by, calls, called_by, inherits."
+    "\n- arise_get_dataflow_slice(root_dir: str, file_path: str, line: int, variable: str, direction: str = None): Trace the intra-procedural data-flow slice for a variable at a given line. direction is 'backward' (default), 'forward', or 'both'."
+    "\n- arise_build_context_bundle(root_dir: str, issue_text: str, seed_ids: str, token_budget: int = None): Assemble a ranked set of code spans relevant to an issue under a token budget. seed_ids is a comma-separated list of node ID strings. Returns a JSON object with 'spans' and 'total_tokens'."
+    "\n- arise_rank_suspects(root_dir: str, issue_text: str, stack_trace: str = None, top_k: int = None): Rank functions and methods by suspicion score for a given issue, seeding from stack trace frames and TF-IDF search. Returns a JSON array of SuspectRegion objects with node_id, file_path, name, line range, and score."
+    "\n\nYou must give correct number of arguments when invoking API calls."
+    "\n\nNote that you can use multiple search APIs in one round."
+    "\n\nNow analyze the issue and select necessary APIs to get more context of the project. Each API call must have concrete arguments as inputs."
+)
+
+SELECT_PROMPT = SELECT_PROMPT_ARISE
 
 ANALYZE_PROMPT = (
     "Let's analyze collected context first.\n"

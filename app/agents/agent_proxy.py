@@ -13,6 +13,17 @@ from app.post_process import ExtractStatus, is_valid_json
 from app.search.search_backend import SearchBackend
 from app.utils import parse_function_invocation
 
+ARISE_TOOLS = """
+arise_search(root_dir: str, query: str, top_k: int = None)
+arise_get_entity_info(root_dir: str, node_id: str)
+arise_get_code_span(root_dir: str, file_path: str, start_line: int, end_line: int)
+arise_get_enclosing_scopes(root_dir: str, file_path: str, line: int)
+arise_traverse_relations(root_dir: str, node_id: str, max_hops: int = None, direction: str = None, relation_types: str = None)
+arise_get_dataflow_slice(root_dir: str, file_path: str, line: int, variable: str, direction: str = None)
+arise_build_context_bundle(root_dir: str, issue_text: str, seed_ids: str, token_budget: int = None)
+arise_rank_suspects(root_dir: str, issue_text: str, stack_trace: str = None, top_k: int = None)
+"""
+
 PROXY_PROMPT = """
 You are a helpful assistant that retreive API calls and bug locations from a text into json format.
 The text will consist of two parts:
@@ -29,6 +40,7 @@ search_class(class_name: str)
 search_code_in_file(code_str: str, file_path: str)
 search_code(code_str: str)
 get_code_around_line(file_path: str, line_number: int, window_size: int)
+{ARISE_TOOLS}
 
 Provide your answer in JSON structure like this, you should ignore the argument placeholders in api calls.
 For example, search_code(code_str="str") should be search_code("str")
@@ -40,6 +52,8 @@ Make sure each API call is written as a valid python expression.
     "bug_locations":[{"file": "path/to/file", "class": "class_name", "method": "method_name", "intended_behavior", "This code should ..."}, {"file": "path/to/file", "class": "class_name", "method": "method_name", "intended_behavior": "..."} ... ]
 }
 """
+
+PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", ARISE_TOOLS)
 
 
 def run_with_retries(text: str, retries=5) -> tuple[str | None, list[MessageThread]]:
