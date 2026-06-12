@@ -15,6 +15,8 @@ def register_all_models() -> None:
     """
     Register all models. This is called in main.
     """
+    common.register_model(gpt.Gpt5_4_mini_2026_03_17())
+    common.register_model(gpt.Gpt5_4_nano_2026_03_17())
     common.register_model(gpt.Gpt4o_20240806())
     common.register_model(gpt.Gpt4o_20240513())
     common.register_model(gpt.Gpt4o_mini_20240718())
