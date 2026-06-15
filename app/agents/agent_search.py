@@ -3,6 +3,7 @@ This agent selects the search APIs to use, and returns the selected APIs in its 
 non-json format.
 """
 
+import os
 import re
 from collections.abc import Generator
 
@@ -52,7 +53,11 @@ SELECT_PROMPT_ARISE = (
     "\n\nNow analyze the issue and select necessary APIs to get more context of the project. Each API call must have concrete arguments as inputs."
 )
 
-SELECT_PROMPT = SELECT_PROMPT_ARISE
+if os.getenv("ARISE_DIRECTORY"):
+    logger.info("ARISE directory detected. Using ARISE search APIs in SELECT_PROMPT.")
+    SELECT_PROMPT = SELECT_PROMPT_ARISE
+else:
+    SELECT_PROMPT = SELECT_PROMPT_DEFAULT
 
 ANALYZE_PROMPT = (
     "Let's analyze collected context first.\n"

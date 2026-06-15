@@ -18,7 +18,7 @@ _CMD_BIN_MAPPING = {
 
 class ARISEBinaryShim:
     def __init__(self):
-        self.arise_directory = os.environ["ARISE_DIRECTORY"]
+        self.arise_directory = os.getenv("ARISE_DIRECTORY", "")
         self.binary_directory = os.path.join(
             self.arise_directory, "src/arise/swe_agent_bundle/bin"
         )

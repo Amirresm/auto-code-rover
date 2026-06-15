@@ -50,7 +50,11 @@ class SearchBackend:
 
 
         # ARISE provider
-        self.arise_shim = ARISEBinaryShim()
+        try:
+            self.arise_shim = ARISEBinaryShim()
+        except Exception as e:
+            logger.warning(f"Failed to initialize ARISEBinaryShim: {e}")
+            self.arise_shim = None
 
     def _build_index(self):
         """

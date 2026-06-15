@@ -3,6 +3,7 @@ A proxy agent. Process raw response into json format.
 """
 
 import inspect
+import os
 from typing import Any
 
 from loguru import logger
@@ -53,8 +54,11 @@ Make sure each API call is written as a valid python expression.
 }
 """
 
-PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", ARISE_TOOLS)
-
+if os.getenv("ARISE_DIRECTORY"):
+    logger.info("ARISE tools are included in the prompt.")
+    PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", ARISE_TOOLS)
+else:
+    PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", "")
 
 def run_with_retries(text: str, retries=5) -> tuple[str | None, list[MessageThread]]:
     msg_threads = []
