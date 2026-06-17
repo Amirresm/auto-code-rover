@@ -8,6 +8,7 @@ from app.model import (
     gptlitellm,
     groq,
     ollama,
+    vllm,
 )
 
 
@@ -15,6 +16,9 @@ def register_all_models() -> None:
     """
     Register all models. This is called in main.
     """
+    common.register_model(vllm.GenericVLLM())
+
+    common.register_model(gpt.Gpt5_4_mini_2026_03_17())
     common.register_model(gpt.Gpt5_4_mini_2026_03_17())
     common.register_model(gpt.Gpt5_4_nano_2026_03_17())
     common.register_model(gpt.Gpt4o_20240806())
