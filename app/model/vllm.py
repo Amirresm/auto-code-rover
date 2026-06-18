@@ -30,10 +30,9 @@ from app.model import common
 from app.model.common import Model
 
 
-class VLLMModel(Model):
+class OpenAISKDModel(Model):
     """
-    Base class for creating Singleton instances of VLLM models.
-    We use native API from OpenAI instead of LiteLLM.
+    Base class for creating Singleton instances of OpenAISKD models.
     """
 
     _instances = {}
@@ -77,19 +76,22 @@ class VLLMModel(Model):
             self.client = OpenAI(base_url=base_url, api_key=key)
 
     def check_base_url(self) -> str:
-        base_url = os.getenv("VLLM_BASE_URL")
+        base_url = os.getenv("OPENAI_BASE_URL")
         if not base_url:
-            print("Please set the VLLM_BASE_URL env var")
+            logger.error(
+                "Please set the OPENAI_BASE_URL env var (e.g. https://api.openai.com/v1 or http://localhost:8080/v1)"
+            )
             sys.exit(1)
         return base_url
 
     def check_api_key(self) -> str:
-        return "dummy"
-        # key = os.getenv("OPENAI_KEY")
-        # if not key:
-        #     print("Please set the OPENAI_KEY env var")
-        #     sys.exit(1)
-        # return key
+        key = os.getenv("OPENAI_KEY")
+        if not key:
+            logger.info(
+                "OPENAI_KEY env var not set, using dummy key. This will only work if the base URL is set to a local test server that does not require authentication."
+            )
+            return "dummy"
+        return key
 
     def extract_resp_content(
         self, chat_completion_message: ChatCompletionMessage
@@ -193,9 +195,10 @@ class VLLMModel(Model):
                     tool_choice=cast(
                         ChatCompletionToolChoiceOptionParam, tool_choice
                     ),
-                    temperature=(
-                        temperature if self.name.startswith("o1") else NOT_GIVEN
-                    ),
+                    # temperature=(
+                    #     temperature if self.name.startswith("o1") else NOT_GIVEN
+                    # ),
+                    temperature=0,
                     response_format=cast(
                         ResponseFormat, {"type": response_format}
                     ),
@@ -209,17 +212,21 @@ class VLLMModel(Model):
                         if self.name.startswith("o1")
                         else NOT_GIVEN
                     ),
-                    top_p=top_p,
+                    # top_p=top_p,
                     stream=False,
+                    extra_body={
+                        "chat_template_kwargs": {"enable_thinking": False},
+                    },
                 )
             else:
                 response: ChatCompletion = self.client.chat.completions.create(
                     model=self.model_id,
                     messages=messages,  # type: ignore
                     tools=tools if tools is not None else NOT_GIVEN,  # type: ignore
-                    temperature=(
-                        temperature if self.name.startswith("o1") else NOT_GIVEN
-                    ),
+                    # temperature=(
+                    #     temperature if self.name.startswith("o1") else NOT_GIVEN
+                    # ),
+                    temperature=0,
                     response_format=cast(
                         ResponseFormat, {"type": response_format}
                     ),
@@ -233,8 +240,11 @@ class VLLMModel(Model):
                         if self.name.startswith("o1")
                         else NOT_GIVEN
                     ),
-                    top_p=top_p,
+                    # top_p=top_p,
                     stream=False,
+                    extra_body={
+                        "chat_template_kwargs": {"enable_thinking": False},
+                    },
                 )
 
             usage_stats = response.usage
@@ -268,13 +278,12 @@ class VLLMModel(Model):
             raise e
 
 
-class GenericVLLM(VLLMModel):
+class GenericVLLM(OpenAISKDModel):
     def __init__(self):
         super().__init__(
             "generic-vllm",
-            32000,
+            int(os.getenv("GENERIC_VLLM_MAX_OUTPUT_TOKEN", "16384")),
             0.0,
             0.0,
-            # model_id="/home/amirresm/projects/def-fard/amirresm/models/Qwen/Qwen2.5-Coder-32B-Instruct",
             model_id=os.getenv("GENERIC_VLLM_MODEL_ID", "generic-vllm"),
         )

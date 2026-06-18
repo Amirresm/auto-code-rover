@@ -1,3 +1,5 @@
+from loguru import logger
+
 from app.arise.arise_shim import ARISEBinaryShim
 
 
@@ -6,6 +8,7 @@ class ARISEProvider:
         self.shim = ARISEBinaryShim()
 
     def call_arise(self, command_name: str, args: list[str]):
+        logger.debug(f"Calling ARISE command: {command_name} with args: {args}")
         return self.shim.call_arise(command_name, args)
 
     def arise_search(self, root_dir: str, query: str, top_k: int | None = None):

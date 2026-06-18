@@ -128,6 +128,7 @@ def is_valid_response(data: Any) -> tuple[bool, str]:
 
             try:
                 func_name, func_args = parse_function_invocation(api_call)
+                logger.debug(f"Parsed API call: {func_name} with arguments {func_args}")
             except Exception:
                 return False, "Every API call must be of form api_call(arg1, ..., argn)"
 
@@ -144,6 +145,7 @@ def is_valid_response(data: Any) -> tuple[bool, str]:
             arg_names = arg_spec.args[1:]  # first parameter is self
 
             if len(func_args) != len(arg_names):
+                logger.debug(f"Do NOT Match: Function args: {arg_names}, provided args: {func_args}")
                 return False, f"the API call '{api_call}' has wrong number of arguments"
 
     return True, "OK"
