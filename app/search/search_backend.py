@@ -1,6 +1,7 @@
 from collections import defaultdict, namedtuple
 from collections.abc import MutableMapping
 from functools import cache
+import json
 import os
 from pathlib import Path
 
@@ -891,7 +892,11 @@ class SearchBackend:
         return final_bug_locs
 
     def _call_arise(self, command_name: str, args: list[str]):
-        return self.arise_shim.call_arise(command_name, args)
+        try:
+            return self.arise_shim.call_arise(command_name, args)
+        except Exception as e:
+            logger.error(f"Error calling arise command {command_name}: {e}")
+            return json.dumps({"error": str(e)})
 
     def _update_arise_root_dir(self, root_dir: str):
         full_path = os.path.join(self.project_path, root_dir)
