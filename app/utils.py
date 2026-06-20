@@ -315,6 +315,7 @@ def parse_function_invocation(
         assert isinstance(func, ast.Name)
         function_name = func.id
         raw_arguments = [ast.unparse(arg) for arg in call.args]
+        raw_arguments += [ast.unparse(kw.value) for kw in call.keywords]
         # clean up spaces or quotes, just in case
         arguments = [arg.strip().strip("'").strip('"') for arg in raw_arguments]
 
@@ -359,3 +360,11 @@ def coroutine(func):
         return gen
 
     return primer
+
+
+if __name__ == "__main__":
+    f1 = "arise_search(root_dir='.', query='static template tag', top_k=5)"
+    f2 = "arise_search('.', 'static template tag', 5)"
+
+    print(parse_function_invocation(f1))
+    print(parse_function_invocation(f2))
