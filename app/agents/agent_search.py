@@ -40,6 +40,7 @@ SELECT_PROMPT_DEFAULT = (
 
 SELECT_PROMPT_ARISE = (
     "Based on the files, classes, methods, and code statements from the issue related to the bug, you can use the following search APIs to get more context of the project."
+    "Ensure you pass the default values of optional parameters when invoking the APIs. For example, if you don't want to set top_k in arise_search, you should still pass it as None (E.g. arise_search('root_dir', 'query', None))."
     "\n- arise_search(root_dir: str, query: str, top_k: int = None): Search for code entities (classes, functions, modules) in the repository graph by text query. Returns a JSON list of matching entities with their file paths and line numbers, sorted by relevance score."
     "\n- arise_get_entity_info(root_dir: str, node_id: str): Return metadata and graph-connectivity summary for a specific node by its ID. Shows file location, type, name, line range, and edge counts grouped by relation type."
     "\n- arise_get_code_span(root_dir: str, file_path: str, start_line: int, end_line: int): Read a specific range of lines from a file in the repository. Returns the code text with its file path and line numbers as JSON."

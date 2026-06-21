@@ -14,6 +14,17 @@ from app.post_process import ExtractStatus, is_valid_json
 from app.search.search_backend import SearchBackend
 from app.utils import parse_function_invocation
 
+DEFAULT_TOOLS = """
+search_method_in_class(method_name: str, class_name: str)
+search_method_in_file(method_name: str, file_path: str)
+search_method(method_name: str)
+search_class_in_file(self, class_name, file_name: str)
+search_class(class_name: str)
+search_code_in_file(code_str: str, file_path: str)
+search_code(code_str: str)
+get_code_around_line(file_path: str, line_number: int, window_size: int)
+"""
+
 ARISE_TOOLS = """
 arise_search(root_dir: str, query: str, top_k: int = None)
 arise_get_entity_info(root_dir: str, node_id: str)
@@ -33,18 +44,12 @@ The text will consist of two parts:
 Extract API calls from question 1 (leave empty if not exist) and bug locations from question 2 (leave empty if not exist).
 
 The API calls include:
-search_method_in_class(method_name: str, class_name: str)
-search_method_in_file(method_name: str, file_path: str)
-search_method(method_name: str)
-search_class_in_file(self, class_name, file_name: str)
-search_class(class_name: str)
-search_code_in_file(code_str: str, file_path: str)
-search_code(code_str: str)
-get_code_around_line(file_path: str, line_number: int, window_size: int)
+{DEFAULT_TOOLS}
 {ARISE_TOOLS}
 
 Provide your answer in JSON structure like this, you should ignore the argument placeholders in api calls.
 For example, search_code(code_str="str") should be search_code("str")
+Ensure you pass the default values of optional parameters when invoking the APIs. For example, if the API call is arise_search(root_dir="root", query="query"), you should invoke it as arise_search("root", "query", None)
 search_method_in_file("method_name", "path.to.file") should be search_method_in_file("method_name", "path/to/file")
 Make sure each API call is written as a valid python expression.
 
@@ -57,8 +62,11 @@ Make sure each API call is written as a valid python expression.
 if os.getenv("ARISE_DIRECTORY"):
     logger.info("ARISE tools are included in the prompt.")
     PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", ARISE_TOOLS)
+    PROXY_PROMPT = PROXY_PROMPT.replace("{DEFAULT_TOOLS}", "")
 else:
+    logger.info("Default search tools are included in the prompt.")
     PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", "")
+    PROXY_PROMPT = PROXY_PROMPT.replace("{DEFAULT_TOOLS}", DEFAULT_TOOLS)
 
 def run_with_retries(text: str, retries=5) -> tuple[str | None, list[MessageThread]]:
     msg_threads = []
@@ -129,7 +137,8 @@ def is_valid_response(data: Any) -> tuple[bool, str]:
             try:
                 func_name, func_args = parse_function_invocation(api_call)
                 logger.debug(f"Parsed API call: {func_name} with arguments {func_args}")
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Failed to parse API call: {api_call}. Error: {e}")
                 return False, "Every API call must be of form api_call(arg1, ..., argn)"
 
             function = getattr(SearchBackend, func_name, None)
