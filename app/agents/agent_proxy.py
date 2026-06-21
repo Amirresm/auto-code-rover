@@ -26,14 +26,14 @@ get_code_around_line(file_path: str, line_number: int, window_size: int)
 """
 
 ARISE_TOOLS = """
-arise_search(root_dir: str, query: str, top_k: int = None)
+arise_search(root_dir: str, query: str, top_k: int = 20)
 arise_get_entity_info(root_dir: str, node_id: str)
 arise_get_code_span(root_dir: str, file_path: str, start_line: int, end_line: int)
 arise_get_enclosing_scopes(root_dir: str, file_path: str, line: int)
-arise_traverse_relations(root_dir: str, node_id: str, max_hops: int = None, direction: str = None, relation_types: str = None)
-arise_get_dataflow_slice(root_dir: str, file_path: str, line: int, variable: str, direction: str = None)
-arise_build_context_bundle(root_dir: str, issue_text: str, seed_ids: str, token_budget: int = None)
-arise_rank_suspects(root_dir: str, issue_text: str, stack_trace: str = None, top_k: int = None)
+arise_traverse_relations(root_dir: str, node_id: str, max_hops: int = 1, direction: str = 'out', relation_types: str = 'all')
+arise_get_dataflow_slice(root_dir: str, file_path: str, line: int, variable: str, direction: str = "backward")
+arise_build_context_bundle(root_dir: str, issue_text: str, seed_ids: str, token_budget: int = 8000)
+arise_rank_suspects(root_dir: str, issue_text: str, stack_trace: str = '', top_k: int = 20)
 """
 
 PROXY_PROMPT = """

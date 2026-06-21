@@ -902,7 +902,7 @@ class SearchBackend:
         full_path = os.path.join(self.project_path, root_dir)
         return os.path.abspath(full_path)
 
-    def arise_search(self, root_dir: str, query: str, top_k: int | None = None):
+    def arise_search(self, root_dir: str, query: str, top_k: int = 20):
         """
         Search for code entities (classes, functions, modules) in the repository graph by text query.
         Returns a JSON list of matching entities with their file paths and line numbers, sorted by relevance score.
@@ -954,9 +954,9 @@ class SearchBackend:
         self,
         root_dir: str,
         node_id: str,
-        max_hops: int | None = None,
-        direction: str | None = None,
-        relation_types: str | None = None,
+        max_hops: int = 1,
+        direction: str = "out",
+        relation_types: str = "all",
     ):
         """
         Traverse the repository graph from a seed node, following edges up to max_hops away.
@@ -983,7 +983,7 @@ class SearchBackend:
         file_path: str,
         line: int,
         variable: str,
-        direction: str | None = None,
+        direction: str = "backward",
     ):
         """
         Trace the intra-procedural data-flow slice for a variable at a given line.
@@ -1004,7 +1004,7 @@ class SearchBackend:
         root_dir: str,
         issue_text: str,
         seed_ids: str,
-        token_budget: int | None = None,
+        token_budget: int = 8000,
     ):
         """
         Assemble a ranked set of code spans relevant to the given issue under a token budget.
@@ -1023,8 +1023,8 @@ class SearchBackend:
         self,
         root_dir: str,
         issue_text: str,
-        stack_trace: str | None = None,
-        top_k: int | None = None,
+        stack_trace: str = "",
+        top_k: int = 20,
     ):
         """
         Rank functions and methods by their suspicion score for the given issue.
