@@ -73,7 +73,7 @@ class OpenAISKDModel(Model):
         if self.client is None:
             base_url = self.check_base_url()
             key = self.check_api_key()
-            self.client = OpenAI(base_url=base_url, api_key=key, timeout=600)
+            self.client = OpenAI(base_url=base_url, api_key=key, timeout=6000)
 
     def check_base_url(self) -> str:
         base_url = os.getenv("OPENAI_BASE_URL")
