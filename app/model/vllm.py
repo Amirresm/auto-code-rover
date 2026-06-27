@@ -22,12 +22,39 @@ from openai.types.chat.chat_completion_tool_choice_option_param import (
     ChatCompletionToolChoiceOptionParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
-from tenacity import retry, stop_after_attempt, wait_random_exponential
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from app.data_structures import FunctionCallIntent
-from app.log import log_and_print
+from app.log import log_and_always_print
 from app.model import common
 from app.model.common import Model
+
+
+def _log_before_retry(retry_state) -> None:
+    """Print to stdout before each retry sleep so a stalled call is visible.
+
+    Without this, a failing ``call`` sleeps silently inside tenacity and the
+    whole run looks frozen (vllm sits idle with 0 requests waiting).
+    """
+    exc = retry_state.outcome.exception()
+    sleep = getattr(retry_state.next_action, "sleep", 0.0)
+    log_and_always_print(
+        f"[vllm.call] attempt {retry_state.attempt_number} failed: "
+        f"{type(exc).__name__}: {exc}. Retrying in {sleep:.1f}s "
+        f"(max {VLLM_MAX_RETRIES} attempts)."
+    )
+
+
+# Local vllm has no rate limits, so retries only help with transient/network
+# errors. Keep waits short so a real failure surfaces in seconds, not minutes.
+# BadRequestError (e.g. context_length_exceeded) is deterministic: retrying it
+# is pointless, so it is excluded and raised immediately.
+VLLM_MAX_RETRIES = 3
 
 
 class OpenAISKDModel(Model):
@@ -143,8 +170,10 @@ class OpenAISKDModel(Model):
 
     # FIXME: the returned type contains OpenAI specific Types, which should be avoided
     @retry(
-        wait=wait_random_exponential(min=30, max=600),
-        stop=stop_after_attempt(3),
+        retry=retry_if_not_exception_type(BadRequestError),
+        wait=wait_random_exponential(min=1, max=10),
+        stop=stop_after_attempt(VLLM_MAX_RETRIES),
+        before_sleep=_log_before_retry,
     )
     def call(
         self,
@@ -273,8 +302,20 @@ class OpenAISKDModel(Model):
             )
         except BadRequestError as e:
             logger.debug("BadRequestError ({}): messages={}", e.code, messages)
+            num_msgs = len(messages)
+            approx_chars = sum(len(str(m.get("content") or "")) for m in messages)
             if e.code == "context_length_exceeded":
-                log_and_print("Context length exceeded")
+                log_and_always_print(
+                    f"[vllm.call] Context length exceeded: {num_msgs} messages, "
+                    f"~{approx_chars} chars (~{approx_chars // 4} tokens) sent. "
+                    "The request was NOT retried. The conversation thread has "
+                    "outgrown the vllm context window (max-model-len minus "
+                    "max_tokens)."
+                )
+            else:
+                log_and_always_print(
+                    f"[vllm.call] BadRequestError ({e.code}): {e}. Not retried."
+                )
             raise e
 
 
