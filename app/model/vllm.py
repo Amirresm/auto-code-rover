@@ -57,6 +57,103 @@ def _log_before_retry(retry_state) -> None:
 VLLM_MAX_RETRIES = 3
 
 
+def _estimate_tokens(text: str) -> int:
+    """Cheap, dependency-free token estimate (~chars / ratio).
+
+    Used only for the safety cap below, not for billing. The ratio is
+    configurable via GENERIC_VLLM_CHARS_PER_TOKEN; lowering it trims more
+    aggressively (safer), raising it trims less.
+    """
+    ratio = float(os.getenv("GENERIC_VLLM_CHARS_PER_TOKEN", "4.0"))
+    return int(len(text) / ratio) if ratio > 0 else len(text)
+
+
+def _msg_tokens(msg: dict) -> int:
+    total = 4  # rough per-message role/formatting overhead
+    content = msg.get("content")
+    if isinstance(content, str):
+        total += _estimate_tokens(content)
+    for tc in msg.get("tool_calls") or []:
+        fn = tc.get("function", {})
+        total += _estimate_tokens(str(fn.get("name", "")) + str(fn.get("arguments", "")))
+    return total
+
+
+def truncate_messages(messages: list[dict]) -> list[dict]:
+    """Bound the input size so the conversation cannot outgrow the context window.
+
+    Opt-in and caller-agnostic: controlled entirely by GENERIC_VLLM_MAX_INPUT_TOKEN.
+    When that env var is unset (or <= 0) this is a no-op, so behavior is identical
+    to not having the cap at all. Set the SAME value across model runs to keep
+    them comparable.
+
+    Strategy: keep the leading system message(s) and the first user message (the
+    issue statement) as an anchor, drop the oldest middle messages, and keep the
+    most recent messages that fit the budget. A placeholder marks the cut.
+    """
+    budget_env = os.getenv("GENERIC_VLLM_MAX_INPUT_TOKEN")
+    if not budget_env:
+        return messages
+    try:
+        budget = int(budget_env)
+    except ValueError:
+        return messages
+    if budget <= 0:
+        return messages
+
+    total = sum(_msg_tokens(m) for m in messages)
+    if total <= budget:
+        return messages
+
+    # Anchor head: leading system messages + the first user message (issue stmt).
+    head: list[dict] = []
+    i = 0
+    while i < len(messages) and messages[i].get("role") == "system":
+        head.append(messages[i])
+        i += 1
+    if i < len(messages) and messages[i].get("role") == "user":
+        head.append(messages[i])
+        i += 1
+
+    placeholder = {
+        "role": "user",
+        "content": "[Note: earlier conversation context was truncated to fit the model's context window.]",
+    }
+
+    remaining = budget - sum(_msg_tokens(m) for m in head) - _msg_tokens(placeholder)
+
+    # Greedily keep the most recent messages that fit the remaining budget.
+    tail: list[dict] = []
+    used = 0
+    for m in reversed(messages[i:]):
+        t = _msg_tokens(m)
+        if used + t > remaining:
+            break
+        tail.append(m)
+        used += t
+    tail.reverse()
+
+    # Repair tool-call pairing at the junction: a leading "tool" message would be
+    # orphaned (its parent assistant with tool_calls was dropped). Drop such.
+    while tail and tail[0].get("role") == "tool":
+        tail.pop(0)
+
+    result = head + [placeholder] + tail
+    new_total = sum(_msg_tokens(m) for m in result)
+    log_and_always_print(
+        f"[vllm.call] Truncated context: {len(messages)} -> {len(result)} messages, "
+        f"~{total} -> ~{new_total} est. input tokens (budget {budget}). "
+        "Set GENERIC_VLLM_MAX_INPUT_TOKEN to tune."
+    )
+    if new_total > budget:
+        log_and_always_print(
+            "[vllm.call] WARNING: still over budget after truncation; the anchor "
+            "messages (system prompt + issue) alone exceed it. The request may be "
+            "rejected by vllm."
+        )
+    return result
+
+
 class OpenAISKDModel(Model):
     """
     Base class for creating Singleton instances of OpenAISKD models.
@@ -207,6 +304,10 @@ class OpenAISKDModel(Model):
         """
         if temperature is None:
             temperature = common.MODEL_TEMP
+
+        # Bound input size before sending (no-op unless GENERIC_VLLM_MAX_INPUT_TOKEN
+        # is set). Keeps the growing search thread from overflowing the window.
+        messages = truncate_messages(messages)
 
         assert self.client is not None
         try:
