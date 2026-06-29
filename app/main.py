@@ -94,6 +94,7 @@ def main():
 
     # acr related
     config.conv_round_limit = args.conv_round_limit
+    config.resume = args.resume
     config.enable_sbfl = args.enable_sbfl
     config.enable_validation = args.enable_validation
     config.enable_angelic = args.enable_angelic
@@ -111,6 +112,8 @@ def main():
         tasks = make_swe_tasks(
             args.task, args.task_list_file, args.setup_map, args.tasks_map
         )
+
+        tasks = filter_completed_tasks(tasks)
 
         config.only_eval_reproducer = args.eval_reproducer
 
@@ -256,6 +259,13 @@ def add_task_related_args(parser: ArgumentParser) -> None:
         help="Conversation round limit for the main agent.",
     )
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=False,
+        help="Skip tasks that already produced a final patch in the output dir, "
+        "so a stopped run can be re-launched without redoing completed tasks.",
+    )
+    parser.add_argument(
         "--enable-layered",
         action="store_true",
         default=True,
@@ -358,6 +368,37 @@ def parse_task_list_file(task_list_file: str) -> list[str]:
     with open(task_list_file) as f:
         task_ids = f.readlines()
     return [x.strip() for x in task_ids]
+
+
+def task_is_completed(task_id: str) -> bool:
+    """Whether a previous run already produced a final patch for this task.
+
+    Looks at all `{output_dir}/{task_id}_<timestamp>` directories from earlier
+    runs and reports completed if any of them has an extracted final patch.
+    """
+    for expr_dir in glob(pjoin(config.output_dir, f"{task_id}_*")):
+        if get_final_patch_path(expr_dir) is not None:
+            return True
+    return False
+
+
+def filter_completed_tasks(tasks: list[RawSweTask]) -> list[RawSweTask]:
+    """In resume mode, drop tasks that already have a final patch on disk."""
+    if not config.resume:
+        return tasks
+    remaining, skipped_ids = [], []
+    for task in tasks:
+        if task_is_completed(task.task_id):
+            skipped_ids.append(task.task_id)
+        else:
+            remaining.append(task)
+    log.print_with_time(
+        f"[resume] Skipping {len(skipped_ids)} already-completed task(s); "
+        f"{len(remaining)} remaining."
+    )
+    if skipped_ids:
+        log.print_with_time(f"[resume] Completed: {sorted(skipped_ids)}")
+    return remaining
 
 
 def group_swe_tasks_by_env(tasks: list[RawSweTask]) -> dict[str, list[RawSweTask]]:

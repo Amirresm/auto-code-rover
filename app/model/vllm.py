@@ -187,17 +187,29 @@ class OpenAISKDModel(Model):
         self.max_output_token = max_output_token
         # client for making request
         self.client: OpenAI | None = None
+        # pid that created self.client; used to detect fork() and rebuild the
+        # client in the child (httpx/httpcore connection pools are NOT fork-safe).
+        self._client_pid: int | None = None
         self._initialized = True
         self.model_id = model_id if model_id is not None else name
 
     def setup(self) -> None:
         """
         Check API key, and initialize OpenAI client.
+
+        Fork-safe: ACR forks worker processes (main.py uses ProcessPoolExecutor
+        with the 'fork' start method). An OpenAI/httpx client created in the
+        parent and inherited by a forked child shares an unsafe connection pool,
+        which can wedge the child in the HTTP layer before the request is ever
+        sent. So we (re)build the client whenever the current pid differs from
+        the one that created it.
         """
-        if self.client is None:
+        if self.client is None or self._client_pid != os.getpid():
             base_url = self.check_base_url()
             key = self.check_api_key()
-            self.client = OpenAI(base_url=base_url, api_key=key, timeout=6000)
+            timeout = float(os.getenv("GENERIC_VLLM_TIMEOUT", "1200"))
+            self.client = OpenAI(base_url=base_url, api_key=key, timeout=timeout)
+            self._client_pid = os.getpid()
 
     def check_base_url(self) -> str:
         base_url = os.getenv("OPENAI_BASE_URL")
@@ -309,6 +321,9 @@ class OpenAISKDModel(Model):
         # is set). Keeps the growing search thread from overflowing the window.
         messages = truncate_messages(messages)
 
+        # Rebuild the client if we have been forked into a new process; reusing
+        # the parent's httpx connection pool across fork() can hang the request.
+        self.setup()
         assert self.client is not None
         try:
             if tools is not None and len(tools) == 1:

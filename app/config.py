@@ -11,6 +11,10 @@ overall_retry_limit: int = 3
 # upper bound of the number of conversation rounds for the agent
 conv_round_limit: int = 15
 
+# resume mode: skip tasks that already produced a final patch in output_dir,
+# so a stopped run can be re-launched without redoing completed tasks
+resume: bool = False
+
 # whether to perform sbfl
 enable_sbfl: bool = False
 
