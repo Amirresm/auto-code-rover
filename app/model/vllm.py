@@ -326,6 +326,13 @@ class OpenAISKDModel(Model):
         self.setup()
         assert self.client is not None
         try:
+            logger.debug(
+                "Calling model {} with {} messages, max_output_token={}",
+                self.name,
+                len(messages),
+                self.max_output_token if not self.name.startswith("o1") else NOT_GIVEN,
+            )
+
             if tools is not None and len(tools) == 1:
                 # there is only one tool => force the model to use it
                 tool_name = tools[0]["function"]["name"]
@@ -398,6 +405,14 @@ class OpenAISKDModel(Model):
             input_tokens = int(usage_stats.prompt_tokens)
             output_tokens = int(usage_stats.completion_tokens)
             cost = self.calc_cost(input_tokens, output_tokens)
+
+            logger.debug(
+                "Model {} call completed: input_tokens={}, output_tokens={}, cost=${:.6f}",
+                self.name,
+                input_tokens,
+                output_tokens,
+                cost,
+            )
 
             common.thread_cost.process_cost += cost
             common.thread_cost.process_input_tokens += input_tokens
