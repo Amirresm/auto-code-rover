@@ -68,7 +68,25 @@ else:
     PROXY_PROMPT = PROXY_PROMPT.replace("{ARISE_TOOLS}", "")
     PROXY_PROMPT = PROXY_PROMPT.replace("{DEFAULT_TOOLS}", DEFAULT_TOOLS)
 
-def run_with_retries(text: str, retries=5) -> tuple[str | None, list[MessageThread]]:
+def _proxy_retries() -> int:
+    """Number of proxy json-conversion attempts.
+
+    Configurable via ACR_PROXY_RETRIES (default 5). Note: with greedy decoding
+    (temperature=0) and no feedback added between attempts, retries re-send an
+    identical prompt and reproduce an identical result, so lowering this avoids
+    wasted LLM calls. Default keeps the original behavior for run consistency.
+    """
+    try:
+        return max(1, int(os.getenv("ACR_PROXY_RETRIES", "5")))
+    except ValueError:
+        return 5
+
+
+def run_with_retries(
+    text: str, retries: int | None = None
+) -> tuple[str | None, list[MessageThread]]:
+    if retries is None:
+        retries = _proxy_retries()
     msg_threads = []
     for idx in range(1, retries + 1):
         logger.debug(
